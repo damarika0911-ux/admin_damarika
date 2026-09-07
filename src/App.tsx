@@ -39,6 +39,7 @@ function App() {
         <Route path="/products" element={<ProtectedPage><Product /></ProtectedPage>} />
         <Route path="/product-category" element={<ProtectedPage><ProductCategoryList /></ProtectedPage>} />
         <Route path="/roles" element={<ProtectedPage><Order /></ProtectedPage>} />
+        <Route path="/program" element={<ProtectedPage><ProgramList /></ProtectedPage>} />
         <Route path="/programs" element={<ProtectedPage><ProgramList /></ProtectedPage>} />
         <Route path="/people" element={<ProtectedPage><PeopleList /></ProtectedPage>} />
         <Route path="/district" element={<ProtectedPage><DistrictList /></ProtectedPage>} />
