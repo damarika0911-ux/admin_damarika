@@ -309,6 +309,10 @@ export default function withModel<T>(config: WithModelConfig<T>) {
       try {
         let finalImage: any = undefined;
         if (imageFile) {
+          const isReplacingExistingImage = mode === "edit" && Boolean(cleanImageUrl(initialValues?.[config.imageField as keyof Partial<T>]));
+          if (isReplacingExistingImage && !window.confirm("Replace the current photo? The old uploaded photo will be permanently deleted after this record is saved.")) {
+            return;
+          }
           const imageData = await uploadImage(imageFile, imageFile?.name as string);
           // Extract URL from upload response
           const resp = imageData?.data;

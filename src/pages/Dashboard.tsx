@@ -11,17 +11,10 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { getArchaelogicals } from "../services/archaelogicalSerivce";
-import { getContacts } from "../services/contactFrom";
-import { getDistricts } from "../services/districtService";
-import { getPeoples } from "../services/peopleService";
-import { getProductCategories } from "../services/productCategorySerivce";
-import { getProducts } from "../services/productService";
-import { getPrograms } from "../services/programService";
-import { getRoles } from "../services/roleSerivce";
-import { getAllUsers } from "../services/userService";
+import { useQueries } from "@tanstack/react-query";
+import { adminQueries } from "../services/queries";
 import GlobalLoader from "../utils/loader";
 
 type StatCard = {
@@ -54,19 +47,20 @@ const item = {
 };
 
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [counts, setCounts] = useState({
-    users: 0,
-    products: 0,
-    categories: 0,
-    programs: 0,
-    roles: 0,
-    people: 0,
-    districts: 0,
-    sites: 0,
-    contacts: 0,
+  const results = useQueries({
+    queries: [
+      adminQueries.users(), adminQueries.products(), adminQueries.categories(),
+      adminQueries.programs(), adminQueries.roles(), adminQueries.people(),
+      adminQueries.districts(), adminQueries.sites(), adminQueries.contacts(),
+    ],
   });
-  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
+  const [users = [], products = [], categories = [], programs = [], roles = [], people = [], districts = [], sites = [], contacts = []] = results.map((result) => result.data ?? []);
+  const loading = results.some((result) => result.isPending);
+  const counts = {
+    users: users.length, products: products.length, categories: categories.length,
+    programs: programs.length, roles: roles.length, people: people.length,
+    districts: districts.length, sites: sites.length, contacts: contacts.length,
+  };
 
   const userName = useMemo(() => {
     try {
@@ -76,78 +70,16 @@ export default function Dashboard() {
     return "Admin";
   }, []);
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const results = await Promise.allSettled([
-          getAllUsers(),
-          getProducts(),
-          getProductCategories(),
-          getPrograms(),
-          getRoles(),
-          getPeoples(),
-          getDistricts(),
-          getArchaelogicals(),
-          getContacts(),
-        ]);
-
-        const getData = (r: PromiseSettledResult<any>) =>
-          r.status === "fulfilled" ? r.value?.data?.data || [] : [];
-
-        const usersData = getData(results[0]);
-        const productsData = getData(results[1]);
-        const categoriesData = getData(results[2]);
-        const programsData = getData(results[3]);
-        const rolesData = getData(results[4]);
-        const peopleData = getData(results[5]);
-        const districtsData = getData(results[6]);
-        const sitesData = getData(results[7]);
-        const contactsData = getData(results[8]);
-
-        setCounts({
-          users: usersData.length,
-          products: productsData.length,
-          categories: categoriesData.length,
-          programs: programsData.length,
-          roles: rolesData.length,
-          people: peopleData.length,
-          districts: districtsData.length,
-          sites: sitesData.length,
-          contacts: contactsData.length,
-        });
-
-        // Build recent items from all data
-        const allItems: RecentItem[] = [];
-        const addRecent = (arr: any[], type: string) => {
-          arr.forEach((item: any) => {
-            allItems.push({
-              id: item.id,
-              name: item.name || item.title || item.subject || "Untitled",
-              type,
-              date: item.createdAt || item.updatedAt || "",
-            });
-          });
-        };
-
-        addRecent(usersData, "User");
-        addRecent(productsData, "Product");
-        addRecent(programsData, "Program");
-        addRecent(contactsData, "Contact");
-        addRecent(peopleData, "People");
-
-        allItems.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-        setRecentItems(allItems.slice(0, 8));
-      } catch (err) {
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, []);
+  const recentItems = useMemo(() => {
+    const allItems: RecentItem[] = [];
+    const addRecent = (records: any[], type: string) => records.forEach((record) => allItems.push({
+      id: record.id, name: record.name || record.title || record.subject || "Untitled",
+      type, date: record.createdAt || record.updatedAt || "",
+    }));
+    addRecent(users, "User"); addRecent(products, "Product"); addRecent(programs, "Program");
+    addRecent(contacts, "Contact"); addRecent(people, "People");
+    return allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8);
+  }, [users, products, programs, contacts, people]);
 
   const stats: StatCard[] = [
     { label: "Users", value: counts.users, icon: Users, path: "/users", color: "#6366f1", bg: "#EEF2FF" },

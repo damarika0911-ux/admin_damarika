@@ -123,6 +123,13 @@ const withTable = <T extends TableData>(
               alignItems: "center",
               flexWrap: "wrap",
               gap: 2,
+              "@media (max-width: 600px)": {
+                px: 2,
+                py: 2,
+                alignItems: "stretch",
+                "& > :last-child": { width: "100%", justifyContent: "space-between" },
+                "& .MuiTextField-root": { flex: 1 },
+              },
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -188,7 +195,7 @@ const withTable = <T extends TableData>(
           </Box>
 
           {/* Table */}
-          <Paper sx={{ width: "100%", boxShadow: "none" }}>
+          <Paper sx={{ width: "100%", boxShadow: "none", overflowX: "auto" }}>
             <DataGrid
               rows={filteredData.filter((row) => row.id !== undefined)}
               getRowId={(row) => row.id}
@@ -199,8 +206,10 @@ const withTable = <T extends TableData>(
               onRowClick={onRowClick}
               disableRowSelectionOnClick={!onRowClick}
               autoHeight
+              aria-label={title}
               sx={{
                 border: 0,
+                minWidth: 680,
                 "& .MuiDataGrid-columnHeaders": {
                   bgcolor: "#F9FAFB",
                   borderBottom: "1px solid",

@@ -6,17 +6,18 @@ import { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { motion } from "framer-motion";
 import { v4 as uuidv4 } from "uuid";
 
-import { useLayoutEffect, useState } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import ProductModel, { ProductType } from "../../components/ProductModel";
 import withTable from "../../components/withTable";
 import {
   createProduct,
   deleteProduct,
-  getProducts,
   updateProduct,
 } from "../../services/productService";
 import GlobalLoader from "../../utils/loader";
+import { adminQueries } from "../../services/queries";
 
 const ProductListContent = () => {
   return null;
@@ -25,8 +26,17 @@ const ProductListContent = () => {
 const Table = withTable(ProductListContent);
 
 export default function ProductList() {
-  const [products, setProducts] = useState<ProductType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: products = [], isPending: isLoading } = useQuery(adminQueries.products());
+  const saveProduct = useMutation({
+    mutationFn: async ({ data, editing }: { data: ProductType; editing: boolean }) =>
+      editing ? updateProduct(data) : createProduct(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
+  const removeProduct = useMutation({
+    mutationFn: deleteProduct,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "products"] }),
+  });
   const [currentProduct, setCurrentProduct] = useState<ProductType | null>(
     null
   );
@@ -55,7 +65,6 @@ export default function ProductList() {
 
   const handleSaveProduct = async (productData: Partial<ProductType>) => {
     try {
-      setIsLoading(true);
       const image = typeof productData.image === "string"
         ? productData.image
         : productData.image?.url;
@@ -66,12 +75,12 @@ export default function ProductList() {
           id: productData.id || (uuidv4() as string),
           image,
         } as unknown as ProductType;
-        await createProduct(data);
+        await saveProduct.mutateAsync({ data, editing: false });
       } else if (mode === "edit" && currentProduct) {
-        await updateProduct({
+        await saveProduct.mutateAsync({ data: {
           ...productData,
           image,
-        } as unknown as ProductType);
+        } as unknown as ProductType, editing: true });
       }
 
       Swal.fire(
@@ -79,13 +88,10 @@ export default function ProductList() {
         mode === "create" ? "Product added!" : "Product updated!",
         "success"
       );
-      await fetchProducts();
       setIsModalOpen(false);
     } catch (error: any) {
-      Swal.fire("Error", error.response.data.message, "error");
+      Swal.fire("Error", error.response?.data?.message || "Unable to save product.", "error");
       setIsModalOpen(false);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -114,17 +120,11 @@ export default function ProductList() {
 
     if (result.isConfirmed) {
       try {
-        setIsLoading(true);
-        await deleteProduct(Number(productId));
-        setProducts(
-          products.filter((u) => u.id !== (productId as unknown as number))
-        );
-        Swal.fire("Deleted!", "User has been deleted.", "success");
+        await removeProduct.mutateAsync(Number(productId));
+        Swal.fire("Deleted!", "Product has been deleted.", "success");
       } catch (error: any) {
         console.error("Error deleting user:", error);
-        Swal.fire("Error", error.response.data.message, "error");
-      } finally {
-        setIsLoading(false);
+        Swal.fire("Error", error.response?.data?.message || "Unable to delete product.", "error");
       }
     }
   };
@@ -204,22 +204,9 @@ export default function ProductList() {
       ),
     },
   ];
-  async function fetchProducts() {
-    try {
-      const response = await getProducts();
-      setProducts(response.data.data);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  useLayoutEffect(() => {
-    fetchProducts();
-  }, []);
-
   return (
     <>
-      <GlobalLoader isLoading={isLoading} />
+      <GlobalLoader isLoading={isLoading || saveProduct.isPending || removeProduct.isPending} />
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -229,7 +216,7 @@ export default function ProductList() {
           data={products}
           columns={columns}
           title="All Products"
-          isLoading={isLoading}
+          isLoading={isLoading || saveProduct.isPending || removeProduct.isPending}
           showSearch={true}
           defaultPageSize={5}
           pageSizeOptions={[5, 10, 25]}
